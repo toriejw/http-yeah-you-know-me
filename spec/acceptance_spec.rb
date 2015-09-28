@@ -22,8 +22,8 @@ RSpec.describe 'Acceptance test' do
       [200, {'Content-Type' => 'text/plain', 'Content-Length' => body.length, 'omg' => 'bbq'}, [body]]
     end
 
-    run_server 9292, app do
-      response = RestClient.get 'localhost:9292/users'
+    run_server 9294, app do
+      response = RestClient.get 'localhost:9294/users'
       expect(response.code).to eq 200
       expect(response.headers[:omg]).to eq 'bbq'
       expect(response.body).to eq "hello, class ^_^"
@@ -35,9 +35,9 @@ RSpec.describe 'Acceptance test' do
   it 'handles multiple requests' do
     app = lambda { |env_hash| [200, {'Content-Type' => 'text/plain'}, []] }
 
-    run_server 9292, app do
-      expect(RestClient.get('localhost:9292/').code).to eq 200
-      expect(RestClient.get('localhost:9292/').code).to eq 200
+    run_server 9294, app do
+      expect(RestClient.get('localhost:9294/').code).to eq 200
+      expect(RestClient.get('localhost:9294/').code).to eq 200
     end
   end
 
@@ -45,8 +45,8 @@ RSpec.describe 'Acceptance test' do
   it 'starts on the specified port' do
     app = lambda { |env_hash| [200, {'Content-Type' => 'text/plain', 'Content-Length' => 5}, ['hello']] }
 
-    run_server 9292, app do
-      expect(RestClient.get('localhost:9292/').body).to eq 'hello'
+    run_server 9294, app do
+      expect(RestClient.get('localhost:9294/').body).to eq 'hello'
     end
   end
 end
