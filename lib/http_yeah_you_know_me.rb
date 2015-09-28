@@ -1,31 +1,13 @@
 require 'stringio'
-
-class HttpYeahYouKnowMe
-  def initialize(port, app)
-
-  end
-
-  # def start
-  # end
-  #
-  # def stop
-  #
-  # end
-
-
-end
-
-# go to http://localhost:9294/to_braille
-
-# require your code you used for NightWriter
-# note that we are talking to it through a web interface instead of a command-line interface
-# hope you wrote it well enough to support that ;)
-require_relative '../../night-writer/lib/night_write'
-
-# require a webserver named Sinatra
+require 'socket'
 require 'sinatra/base'
 
 class NightWriterServer < Sinatra::Base
+  def call
+    # require 'pry'; binding.pry
+
+  end
+
   get '/to_braille' do
     "<form action='/to_braille' method='post'>
       <input type='textarea' name='english-message'></input>
@@ -35,46 +17,63 @@ class NightWriterServer < Sinatra::Base
 
   post '/to_braille' do
     message = params['english-message'].split(" ")
-    braille = NightWrite.new(message).call # <-- change this to look like your night writer code
+    braille = Translator.night_write(message)
     "<pre>#{braille}</pre>"
   end
 end
 
+class HttpYeahYouKnowMe
+  attr_reader :port, :app
+  attr_accessor :tcp_server
 
-# switch this to use your server
-use_my_server = false
+  def initialize(port, app)
+    @port = port
+    @app = app
+    @tcp_server
+  end
 
-if use_my_server
-  require_relative 'lib/http_yeah_you_know_me' # <-- probably right, but double check it
-  server = HttpYeahYouKnowMe.new(9294, NightWriterServer)
-  at_exit { server.stop }
-  server.start
-else
-  NightWriterServer.set :port, 9294
-  NightWriterServer.run!
+  def start
+    # port       = 9294
+    self.tcp_server = TCPServer.new(port)
+
+    # Wait for a request
+    client = tcp_server.accept
+
+    # Read the request
+    method, path, version = client.gets.split(" ")
+
+    env_hash = {} # What you parse from the request
+
+    line = client.gets.strip!.split(": ")
+    until line.empty?
+      env_hash[line[0]] = line[1]
+      line = client.gets.strip!.split(": ")
+    end
+    env_hash["rack.input"] = StringIO.new
+    env_hash["REQUEST_METHOD"] = method
+    env_hash["PATH_INFO"] = path
+
+    response = app.call(env_hash)
+
+    # require 'pry'; binding.pry
+
+    client.print("HTTP/1.1 #{response[0]} Found\r\n")
+    client.print("Location: #{path}\r\n")
+    client.print("Content-Type: text/html; charset=UTF-8\r\n")
+    client.print("Content-Length: #{}\r\n")
+    client.print("\r\n")
+    client.print("<HTML><HEAD></HEAD><BODY>#{}</BODY>\r\n")
+    client.close
+  end
+
+  def stop
+    tcp_server.close_read
+    tcp_server.close_write
+  end
 end
 
+# go to http://localhost:9294/to_braille
 
-# You for sure need these keys:
-{"REQUEST_METHOD" => "GET", "PATH_INFO" => "/users/456", "rack.input" => StringIO.new}
-
-# You'll need to pass this through to the TCPServer
-port = 9294
-
-# The app:
-#   You're serving the code, the app is responsible for deciding what to do with the request.
-#   An app is any object that has a method named `call`
-#   that can receive a the hash you parsed from the request
-#   and return an array with these three things in it
-app = lambda do |env_hash|
-  [302, {'Location' => 'http://turing.io'}, ["<h1>hi</h1>"]]
-end
-
-# For clarity:
-env_hash = {} # What you parse from the request
-app.call(env_hash) # => [200, {"Content-Type"=>"text/plain", "Content-Length"=>"5"}, ["hello"]]
-
-# Your server takes the port and the app, starts up when we call start, closes the read / write when we call stop
-server = HttpYeahYouKnowMe.new(port, app)
-server.start # this will lock the computer up as it waits for the request to come in
-server.stop
+# require your code you used for NightWriter
+# note that we are talking to it through a web interface instead of a command-line interface
+# hope you wrote it well enough to support that ;)
