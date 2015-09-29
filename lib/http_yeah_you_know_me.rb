@@ -34,6 +34,7 @@ class HttpYeahYouKnowMe
     loop do
       client = tcp_server.accept
       env_hash = Parser.call(client)
+      env_hash["rack.input"] = StringIO.new client.read(env_hash["CONTENT_LENGTH"])
       response = app.call(env_hash)
       create_response(client, response)
       client.close
@@ -52,7 +53,9 @@ class HttpYeahYouKnowMe
     client.print("HTTP/1.1 #{response[0]} Found\r\n")
     headers.each { |key, value| client.print("#{key}: #{value}\r\n")}
     client.print("\r\n")
-
-    response[2].each { |string| client.print string }
+    # binding.pry
+    body = response[2][0]
+    # binding.pry
+    client.print("#{body}")
   end
 end
