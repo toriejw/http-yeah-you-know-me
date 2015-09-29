@@ -12,7 +12,6 @@ RSpec.describe 'Acceptance test' do
     server.stop
   end
 
-
   it 'accepts and responds to a web request' do
     path_info = "this value should be overridden by the app!"
 
@@ -40,7 +39,6 @@ RSpec.describe 'Acceptance test' do
       expect(RestClient.get('localhost:9294/').code).to eq 200
     end
   end
-
 
   it 'starts on the specified port' do
     app = lambda { |env_hash| [200, {'Content-Type' => 'text/plain', 'Content-Length' => 5}, ['hello']] }

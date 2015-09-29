@@ -1,13 +1,9 @@
 require 'stringio'
 require 'socket'
 require 'sinatra/base'
+require 'pry'
 
 class NightWriterServer < Sinatra::Base
-  def call
-    # require 'pry'; binding.pry
-
-  end
-
   get '/to_braille' do
     "<form action='/to_braille' method='post'>
       <input type='textarea' name='english-message'></input>
@@ -33,37 +29,39 @@ class HttpYeahYouKnowMe
   end
 
   def start
-    # port       = 9294
     self.tcp_server = TCPServer.new(port)
+    loop do
+      client = tcp_server.accept
+      method, path, version = client.gets.split(" ")
 
-    # Wait for a request
-    client = tcp_server.accept
-
-    # Read the request
-    method, path, version = client.gets.split(" ")
-
-    env_hash = {} # What you parse from the request
-
-    line = client.gets.strip!.split(": ")
-    until line.empty?
-      env_hash[line[0]] = line[1]
+      env_hash = {}
       line = client.gets.strip!.split(": ")
+      until line.empty?
+        env_hash[line[0]] = line[1]
+        line = client.gets.strip!.split(": ")
+      end
+
+      env_hash["rack.input"] = StringIO.new
+      env_hash["REQUEST_METHOD"] = method
+      env_hash["PATH_INFO"] = path
+
+      response = app.call(env_hash)
+
+      headers = response[1]
+
+      client.print("HTTP/1.1 #{response[0]} Found\r\n")
+      headers.each { |key, value| client.print("#{key}: #{value}\r\n")}
+      client.print("\r\n")
+
+      if response[2].first.nil?
+        client.print("#{}\r\n")
+      else
+        body = StringIO.new response[2][0]
+        client.print("#{body.read(env_hash["Content-Length"])}\r\n")
+      end
+
+      client.close
     end
-    env_hash["rack.input"] = StringIO.new
-    env_hash["REQUEST_METHOD"] = method
-    env_hash["PATH_INFO"] = path
-
-    response = app.call(env_hash)
-
-    # require 'pry'; binding.pry
-
-    client.print("HTTP/1.1 #{response[0]} Found\r\n")
-    client.print("Location: #{path}\r\n")
-    client.print("Content-Type: text/html; charset=UTF-8\r\n")
-    client.print("Content-Length: #{}\r\n")
-    client.print("\r\n")
-    client.print("<HTML><HEAD></HEAD><BODY>#{}</BODY>\r\n")
-    client.close
   end
 
   def stop
@@ -71,9 +69,3 @@ class HttpYeahYouKnowMe
     tcp_server.close_write
   end
 end
-
-# go to http://localhost:9294/to_braille
-
-# require your code you used for NightWriter
-# note that we are talking to it through a web interface instead of a command-line interface
-# hope you wrote it well enough to support that ;)
