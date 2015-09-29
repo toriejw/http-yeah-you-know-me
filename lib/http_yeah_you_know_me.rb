@@ -2,6 +2,7 @@ require 'stringio'
 require 'socket'
 require 'sinatra/base'
 require 'pry'
+require_relative './parser'
 
 class NightWriterServer < Sinatra::Base
   get '/to_braille' do
@@ -32,34 +33,9 @@ class HttpYeahYouKnowMe
     self.tcp_server = TCPServer.new(port)
     loop do
       client = tcp_server.accept
-      method, path, version = client.gets.split(" ")
-
-      env_hash = {}
-      line = client.gets.strip!.split(": ")
-      until line.empty?
-        env_hash[line[0]] = line[1]
-        line = client.gets.strip!.split(": ")
-      end
-
-      env_hash["rack.input"] = StringIO.new
-      env_hash["REQUEST_METHOD"] = method
-      env_hash["PATH_INFO"] = path
-
+      env_hash = Parser.call(client)
       response = app.call(env_hash)
-
-      headers = response[1]
-
-      client.print("HTTP/1.1 #{response[0]} Found\r\n")
-      headers.each { |key, value| client.print("#{key}: #{value}\r\n")}
-      client.print("\r\n")
-
-      if response[2].first.nil?
-        client.print("#{}\r\n")
-      else
-        body = StringIO.new response[2][0]
-        client.print("#{body.read(env_hash["Content-Length"])}\r\n")
-      end
-
+      create_response(client, response)
       client.close
     end
   end
@@ -67,5 +43,16 @@ class HttpYeahYouKnowMe
   def stop
     tcp_server.close_read
     tcp_server.close_write
+  end
+
+  private
+  def create_response(client, response)
+    headers = response[1]
+
+    client.print("HTTP/1.1 #{response[0]} Found\r\n")
+    headers.each { |key, value| client.print("#{key}: #{value}\r\n")}
+    client.print("\r\n")
+
+    response[2].each { |string| client.print string }
   end
 end
